@@ -1,12 +1,9 @@
-Gov Route Finder
-
-A full-stack government route and directory finder platform built with a Next.js frontend and a Node.js backend.
+# Gov Route Finder
+A full-stack government route and directory finder platform built with a **Next.js frontend** and a **Node.js backend**.  
 The project helps users discover, scrape, and manage government department routes, directories, and related information efficiently.
-
-⸻
-
-📁 Project Structure
-
+---
+# 📁 Project Structure
+```bash
 project-root/
 │
 ├── frontend/              # Next.js frontend application
@@ -139,7 +136,7 @@ frontend/
 ├── package.json
 └── postcss.config.mjs
 
-
+⸻
 
 Backend
 
