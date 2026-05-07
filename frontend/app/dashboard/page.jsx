@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const PYTHON_URL = process.env.NEXT_PUBLIC_PYTHON_BACKEND_URL || "http://localhost:8000";
 
-// ─── Nav (same as landing) ──────────────────────────────────────────────────
+// ─── Nav ─────────────────────────────────────────────────────────────────────
 function TopNavBar() {
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
@@ -23,14 +23,12 @@ function TopNavBar() {
       }}
       className="fixed top-8 left-1/2 -translate-x-1/2 w-[95%] max-w-[1440px] rounded-full border backdrop-blur-[20px] z-50 flex justify-between items-center px-8 py-3"
     >
-      <div className="font-headline-md text-headline-md italic text-primary tracking-tight">
-        GOV.io
-      </div>
+      <div className="font-headline-md text-headline-md italic text-primary tracking-tight">GOV.io</div>
       <div className="hidden md:flex gap-6 items-center">
         <a className="font-label-caps text-label-caps text-on-surface-variant hover:text-primary hover:opacity-80 transition-all duration-300" href="/">About</a>
         <a className="font-label-caps text-label-caps text-primary border-b border-white pb-1" href="/dashboard">Dashboard</a>
         <a className="font-body-md text-body-md text-on-surface-variant hover:text-primary hover:opacity-80 transition-all duration-300" href="/urls">URLs</a>
-        <a className="font-body-md text-body-md text-on-surface-variant hover:text-primary hover:opacity-80 transition-all duration-300" href="/">Chat.io</a>
+        {/* <a className="font-body-md text-body-md text-on-surface-variant hover:text-primary hover:opacity-80 transition-all duration-300" href="/">Chat.io</a> */}
       </div>
       <button className="bg-primary text-on-primary rounded-full px-6 py-2 font-label-caps text-label-caps hover:opacity-80 transition-opacity">
         Get Started
@@ -39,7 +37,7 @@ function TopNavBar() {
   );
 }
 
-// ─── Stat Card ──────────────────────────────────────────────────────────────
+// ─── Stat Card ────────────────────────────────────────────────────────────────
 function StatCard({ label, value, icon, accent = false }) {
   return (
     <motion.div
@@ -60,7 +58,7 @@ function StatCard({ label, value, icon, accent = false }) {
   );
 }
 
-// ─── Search Bar ─────────────────────────────────────────────────────────────
+// ─── Search Bar ───────────────────────────────────────────────────────────────
 function SearchBar({ onSearch }) {
   const [q, setQ] = useState("");
   const [mode, setMode] = useState("semantic");
@@ -107,7 +105,125 @@ function SearchBar({ onSearch }) {
   );
 }
 
-// ─── Record Row ─────────────────────────────────────────────────────────────
+// ─── Pagination ───────────────────────────────────────────────────────────────
+// ─── Pagination (replace entire component) ───────────────────────────────────
+function Pagination({ page, totalPages, onPage, loading }) {
+  if (totalPages <= 1) return null;
+
+  const getPages = () => {
+    const pages = [];
+    const delta = 2;
+    const rangeStart = Math.max(1, page + 1 - delta);
+    const rangeEnd = Math.min(totalPages, page + 1 + delta);
+
+    if (rangeStart > 1) {
+      pages.push(0);
+      if (rangeStart > 2) pages.push("…");
+    }
+    for (let i = rangeStart; i <= rangeEnd; i++) pages.push(i - 1);
+    if (rangeEnd < totalPages) {
+      if (rangeEnd < totalPages - 1) pages.push("…");
+      pages.push(totalPages - 1);
+    }
+    return pages;
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="flex items-center justify-center gap-2 flex-wrap"
+    >
+      {/* ← Left Arrow */}
+      <button
+        onClick={() => onPage(page - 1)}
+        disabled={page === 0 || loading}
+        className="liquid-glass rounded-full w-10 h-10 flex items-center justify-center text-primary hover:bg-white/10 transition-colors duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
+        aria-label="Previous page"
+      >
+        <span className="material-symbols-outlined text-lg">chevron_left</span>
+      </button>
+
+      {/* Page Numbers */}
+      {getPages().map((p, i) =>
+        p === "…" ? (
+          <span key={`ellipsis-${i}`} className="w-10 text-center font-label-caps text-label-caps text-on-surface-variant select-none">
+            ···
+          </span>
+        ) : (
+          <button
+            key={p}
+            onClick={() => onPage(p)}
+            disabled={loading}
+            className="w-10 h-10 rounded-full font-label-caps text-label-caps transition-all duration-200 disabled:cursor-not-allowed"
+            style={{
+              background: p === page ? "rgba(255,255,255,0.15)" : "transparent",
+              boxShadow: p === page ? "inset 0 0 0 1px rgba(255,255,255,0.3)" : "none",
+              color: p === page ? "#ffffff" : "#c4c7c8",
+            }}
+          >
+            {p + 1}
+          </button>
+        )
+      )}
+
+      {/* → Right Arrow */}
+      <button
+        onClick={() => onPage(page + 1)}
+        disabled={page >= totalPages - 1 || loading}
+        className="liquid-glass rounded-full w-10 h-10 flex items-center justify-center text-primary hover:bg-white/10 transition-colors duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
+        aria-label="Next page"
+      >
+        <span className="material-symbols-outlined text-lg">chevron_right</span>
+      </button>
+
+      {/* Page indicator */}
+      <span className="font-label-caps text-label-caps text-on-surface-variant ml-3 opacity-60">
+        {page + 1} / {totalPages}
+      </span>
+    </motion.div>
+  );
+}
+
+// ─── Jump-to-page input ───────────────────────────────────────────────────────
+function JumpToPage({ page, totalPages, onPage, loading }) {
+  const [val, setVal] = useState("");
+
+  const handleJump = (e) => {
+    e.preventDefault();
+    const n = parseInt(val, 10);
+    if (!isNaN(n) && n >= 1 && n <= totalPages) {
+      onPage(n - 1);
+      setVal("");
+    }
+  };
+
+  return (
+    <form onSubmit={handleJump} className="liquid-glass rounded-full flex items-center gap-2 px-4 py-2 ml-2">
+      <span className="font-label-caps text-label-caps text-on-surface-variant whitespace-nowrap">Go to</span>
+      <input
+        type="number"
+        min={1}
+        max={totalPages}
+        value={val}
+        onChange={e => setVal(e.target.value)}
+        placeholder={String(page + 1)}
+        disabled={loading}
+        className="bg-transparent outline-none font-label-caps text-label-caps text-primary w-10 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+      />
+      <button
+        type="submit"
+        disabled={loading || !val}
+        className="material-symbols-outlined text-base text-on-surface-variant hover:text-primary transition-colors disabled:opacity-30"
+      >
+        arrow_forward
+      </button>
+    </form>
+  );
+}
+
+// ─── Record Row ───────────────────────────────────────────────────────────────
 function RecordRow({ record, index }) {
   const initials = (record.name || "??").split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase();
   const colors = ["#d45928", "#4285f4", "#34a853", "#fbbc04", "#ea4335", "#8ab4f8"];
@@ -152,7 +268,7 @@ function RecordRow({ record, index }) {
   );
 }
 
-// ─── Skeleton Loader ────────────────────────────────────────────────────────
+// ─── Skeleton Loader ──────────────────────────────────────────────────────────
 function SkeletonRows({ count = 8 }) {
   return Array.from({ length: count }).map((_, i) => (
     <tr key={i} className="border-b border-white/5">
@@ -165,7 +281,7 @@ function SkeletonRows({ count = 8 }) {
   ));
 }
 
-// ─── Main Dashboard ──────────────────────────────────────────────────────────
+// ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [records, setRecords] = useState([]);
@@ -177,7 +293,7 @@ export default function Dashboard() {
   const [isSearchMode, setIsSearchMode] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [exportLoading, setExportLoading] = useState(false);
-  const limit = 50;
+  const limit = 20;
 
   const fetchStats = useCallback(async () => {
     try {
@@ -193,7 +309,7 @@ export default function Dashboard() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${PYTHON_URL}/records?limit=${limit}&offset=${pageNum * limit}`);
+      const res = await fetch(`${PYTHON_URL}/records`);
       const data = await res.json();
       const arr = Array.isArray(data) ? data : (data.items || data.records || []);
       setRecords(arr);
@@ -210,13 +326,13 @@ export default function Dashboard() {
     setIsSearchMode(true);
     setSearchQuery(q);
     setError(null);
+    setPage(0);
     try {
       const res = await fetch(`${PYTHON_URL}/search?q=${encodeURIComponent(q)}&mode=${mode}&limit=100`);
       const data = await res.json();
       const arr = Array.isArray(data) ? data : (data.results || data.items || []);
       setRecords(arr);
       setTotal(arr.length);
-      setPage(0);
     } catch (e) {
       setError("Search failed. Please try again.");
     } finally {
@@ -254,14 +370,18 @@ export default function Dashboard() {
     fetchRecords(0);
   }, []);
 
-  const handlePage = (dir) => {
-    const next = page + dir;
-    setPage(next);
-    fetchRecords(next);
+  const handlePage = (nextPage) => {
+    setPage(nextPage);
+    if (!isSearchMode) fetchRecords(nextPage);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const totalPages = Math.ceil(total / limit);
+
+  // For search mode, paginate client-side
+  const displayedRecords = isSearchMode
+    ? records.slice(page * limit, (page + 1) * limit)
+    : records;
 
   return (
     <div className="min-h-screen bg-background relative overflow-x-hidden">
@@ -308,14 +428,11 @@ export default function Dashboard() {
           box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1);
         }
 
-        /* bg grid */
         .bg-grid {
           background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
                             linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
           background-size: 64px 64px;
         }
-
-        /* glow blob */
         .blob {
           position: fixed;
           pointer-events: none;
@@ -323,9 +440,13 @@ export default function Dashboard() {
           filter: blur(100px);
           opacity: 0.18;
         }
+
+        /* hide number input arrows */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+        input[type=number] { -moz-appearance: textfield; }
       `}} />
 
-      {/* Ambient glows */}
       <div className="blob" style={{ width: 600, height: 600, top: -200, left: -200, background: "#d45928" }} />
       <div className="blob" style={{ width: 500, height: 500, bottom: -100, right: -100, background: "#d45928" }} />
       <div className="bg-grid absolute inset-0 pointer-events-none" />
@@ -352,12 +473,10 @@ export default function Dashboard() {
 
         {/* ── STAT CARDS ── */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
-       
-
-<StatCard label="TOTAL CONTACTS" value={stats?.total_contacts?.toLocaleString()} icon="contacts" accent />
-<StatCard label="DEPARTMENTS" value={stats?.unique_departments?.toLocaleString()} icon="corporate_fare" />
-<StatCard label="SOURCES SCRAPED" value={stats?.unique_sources?.toLocaleString()} icon="language" />
-<StatCard label="VECTORS INDEXED" value={stats?.chroma_vectors?.toLocaleString()} icon="hub" />
+          <StatCard label="TOTAL CONTACTS" value={stats?.total_contacts?.toLocaleString()} icon="contacts" accent />
+          <StatCard label="DEPARTMENTS" value={stats?.unique_departments?.toLocaleString()} icon="corporate_fare" />
+          <StatCard label="SOURCES SCRAPED" value={stats?.unique_sources?.toLocaleString()} icon="language" />
+          <StatCard label="VECTORS INDEXED" value={stats?.chroma_vectors?.toLocaleString()} icon="hub" />
         </div>
 
         {/* ── SEARCH + EXPORT ── */}
@@ -384,6 +503,11 @@ export default function Dashboard() {
               )}
               <span className="font-label-caps text-label-caps text-on-surface-variant">
                 {total.toLocaleString()} {isSearchMode ? "results" : "records"}
+                {totalPages > 1 && (
+                  <span className="ml-2 opacity-60">
+                    · page {page + 1} of {totalPages}
+                  </span>
+                )}
               </span>
             </div>
 
@@ -426,7 +550,7 @@ export default function Dashboard() {
                 <tbody>
                   {(loading || searchLoading) ? (
                     <SkeletonRows count={8} />
-                  ) : records.length === 0 ? (
+                  ) : displayedRecords.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="py-24 text-center">
                         <span className="material-symbols-outlined text-5xl text-on-surface-variant block mb-4">search_off</span>
@@ -435,7 +559,7 @@ export default function Dashboard() {
                     </tr>
                   ) : (
                     <AnimatePresence mode="wait">
-                      {records.map((record, i) => (
+                      {displayedRecords.map((record, i) => (
                         <RecordRow key={record.id || i} record={record} index={i} />
                       ))}
                     </AnimatePresence>
@@ -447,33 +571,13 @@ export default function Dashboard() {
         </motion.div>
 
         {/* ── PAGINATION ── */}
-        {!isSearchMode && totalPages > 1 && (
-          <div className="flex items-center justify-center gap-4">
-            <button
-              onClick={() => handlePage(-1)}
-              disabled={page === 0 || loading}
-              className="liquid-glass rounded-full px-6 py-3 font-label-caps text-label-caps text-primary flex items-center gap-2 hover:bg-white/10 transition-colors duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              <span className="material-symbols-outlined text-base">arrow_back</span>
-              Prev
-            </button>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPage={handlePage}
+          loading={loading || searchLoading}
+        />
 
-            <div className="liquid-glass rounded-full px-6 py-3">
-              <span className="font-label-caps text-label-caps text-on-surface-variant">
-                Page <span className="text-primary">{page + 1}</span> of <span className="text-primary">{totalPages}</span>
-              </span>
-            </div>
-
-            <button
-              onClick={() => handlePage(1)}
-              disabled={page >= totalPages - 1 || loading}
-              className="liquid-glass rounded-full px-6 py-3 font-label-caps text-label-caps text-primary flex items-center gap-2 hover:bg-white/10 transition-colors duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
-            >
-              Next
-              <span className="material-symbols-outlined text-base">arrow_forward</span>
-            </button>
-          </div>
-        )}
       </main>
 
       {/* ── FOOTER ── */}

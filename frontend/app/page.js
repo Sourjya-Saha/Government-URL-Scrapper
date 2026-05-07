@@ -232,12 +232,12 @@ export default function Page() {
           >
             URLs
           </a>
-          <a
+          {/* <a
             className="font-body-md text-body-md text-on-surface-variant hover:text-primary hover:opacity-80 transition-all duration-300 scale-100 active:scale-95"
             href="/"
           >
             Chat.io
-          </a>
+          </a> */}
         </div>
        <Link href="/dashboard">
   <button className="bg-primary text-on-primary rounded-full px-6 py-2 font-label-caps text-label-caps hover:opacity-80 transition-opacity">

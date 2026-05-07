@@ -492,7 +492,7 @@ function TopNavBar() {
         <a className="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-all duration-300" href="/">About</a>
         <a className="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-all duration-300" href="/dashboard">Dashboard</a>
         <a className="font-label-caps text-label-caps text-primary border-b border-white pb-1" href="/urls">URLs</a>
-        <a className="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-all duration-300" href="/">Chat.io</a>
+        {/* <a className="font-body-md text-body-md text-on-surface-variant hover:text-primary transition-all duration-300" href="/">Chat.io</a> */}
       </div>
       <button className="bg-primary text-on-primary rounded-full px-6 py-2 font-label-caps text-label-caps hover:opacity-80 transition-opacity">
         Get Started
@@ -526,138 +526,160 @@ export default function URLPage() {
   const [dragOver, setDragOver]   = useState(false);
   const [fileName, setFileName]   = useState(null);
   const fileRef = useRef(null);
-  const abortRef = useRef(false);
+// ─── Refs ────────────────────────────────────────────────────────────────────
+const abortRef = useRef({ stopped: false, controller: null });
 
   // ── Update a single item by index ─────────────────────────────────────────
-  const updateItem = useCallback((index, patch) => {
-    setItems(prev => prev.map((it, i) => i === index ? { ...it, ...patch } : it));
-  }, []);
+// ── Update a single item by index ─────────────────────────────────────────
+const updateItem = useCallback((index, patch) => {
+  setItems(prev => prev.map((it, i) => i === index ? { ...it, ...patch } : it));
+}, []);
 
-  // ── Process one URL ────────────────────────────────────────────────────────
-  const processUrl = useCallback(async (rawUrl, index) => {
-    if (abortRef.current) return;
+// ── Process one URL ────────────────────────────────────────────────────────
+const processUrl = useCallback(async (rawUrl, index) => {
+  if (abortRef.current.stopped) return;
 
-    const needsRouteFinder = shouldCallRouteFinder(rawUrl);
+  const needsRouteFinder = shouldCallRouteFinder(rawUrl);
 
-    // Validate: must be gov.in or nic.in
-    let normalizedUrl;
+  // Create a fresh AbortController for this URL's fetches
+  const controller = new AbortController();
+  abortRef.current.controller = controller;
+
+  // Validate
+  let normalizedUrl;
+  try {
+    const u = new URL(rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`);
+    const h = u.hostname.toLowerCase();
+    if (!h.endsWith(".gov.in") && !h.endsWith(".nic.in")) {
+      updateItem(index, { status: "invalid", error: "Not a .gov.in or .nic.in domain — skipped.", needsRouteFinder });
+      return;
+    }
+    normalizedUrl = u.href;
+  } catch {
+    updateItem(index, { status: "invalid", error: "Malformed URL — skipped." });
+    return;
+  }
+
+  updateItem(index, { status: "running", needsRouteFinder, url: normalizedUrl });
+
+  let ingestUrl = normalizedUrl;
+  let confidence, matchReasons, routeUrl;
+
+  // ── Step 1: Route Finder ─────────────────────────────────────────────────
+  if (needsRouteFinder) {
+    updateItem(index, { status: "routing" });
     try {
-      const u = new URL(rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`);
-      const h = u.hostname.toLowerCase();
-      if (!h.endsWith(".gov.in") && !h.endsWith(".nic.in")) {
-        updateItem(index, { status: "invalid", error: "Not a .gov.in or .nic.in domain — skipped.", needsRouteFinder });
+      const res = await fetch(
+        `${NODE_URL}/find-route?url=${encodeURIComponent(normalizedUrl)}`,
+        { signal: controller.signal }
+      );
+      if (!res.ok) throw new Error(`Route finder returned ${res.status}`);
+      const data = await res.json();
+
+      if (data.success && data.route) {
+        ingestUrl    = data.route;
+        confidence   = data.confidence;
+        matchReasons = data.meta?.matchReasons || [];
+        routeUrl     = data.route;
+      } else {
+        updateItem(index, {
+          status: "skipped",
+          error: "Route finder returned no valid route.",
+          routeUrl: null,
+          confidence: null,
+        });
         return;
       }
-      normalizedUrl = u.href;
-    } catch {
-      updateItem(index, { status: "invalid", error: "Malformed URL — skipped." });
+    } catch (e) {
+      if (e.name === "AbortError") {
+        updateItem(index, { status: "skipped", error: "Stopped by user." });
+        return;
+      }
+      updateItem(index, { status: "error", error: `Route finder failed: ${e.message}` });
+      return;
+    }
+  } else {
+    routeUrl = normalizedUrl;
+  }
+
+  // Guard between steps
+  if (abortRef.current.stopped) {
+    updateItem(index, { status: "skipped", error: "Stopped by user.", routeUrl, confidence, matchReasons });
+    return;
+  }
+
+  // ── Step 2: Python Ingest ────────────────────────────────────────────────
+  updateItem(index, { status: "ingesting", routeUrl, confidence, matchReasons });
+  try {
+    const res = await fetch(`${PYTHON_URL}/ingest/url`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: ingestUrl, store: true }),
+      signal: controller.signal,
+    });
+
+    const raw = await res.text();
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch { parsed = raw; }
+
+    if (!res.ok) {
+      updateItem(index, {
+        status: "error",
+        error: `Ingest failed (${res.status}): ${typeof parsed === "string" ? parsed : JSON.stringify(parsed)}`,
+        ingestResponse: parsed,
+        routeUrl, confidence, matchReasons,
+      });
       return;
     }
 
-    updateItem(index, { status: "running", needsRouteFinder, url: normalizedUrl });
-
-    let ingestUrl = normalizedUrl;
-    let confidence, matchReasons, routeUrl;
-
-    // ── Step 1: Route Finder (if root domain) ────────────────────────────────
-    if (needsRouteFinder) {
-      updateItem(index, { status: "routing" });
-      try {
-        const res = await fetch(`${NODE_URL}/find-route?url=${encodeURIComponent(normalizedUrl)}`);
-        if (!res.ok) throw new Error(`Route finder returned ${res.status}`);
-        const data = await res.json();
-
-        if (data.success && data.route) {
-          ingestUrl      = data.route;
-          confidence     = data.confidence;
-          matchReasons   = data.meta?.matchReasons || [];
-          routeUrl       = data.route;
-        } else {
-          // No route found — skip ingestion, mark as skipped
-          updateItem(index, {
-            status: "skipped",
-            error: "Route finder returned no valid route.",
-            routeUrl: null,
-            confidence: null,
-          });
-          return;
-        }
-      } catch (e) {
-        updateItem(index, {
-          status: "error",
-          error: `Route finder failed: ${e.message}`,
-        });
-        return;
-      }
-    } else {
-      // Deep link — use directly
-      routeUrl = normalizedUrl;
+    let recordsCount;
+    if (typeof parsed === "object" && parsed !== null) {
+      recordsCount = parsed.count ?? parsed.records_count ?? parsed.stored ?? parsed.total ?? undefined;
     }
 
-    if (abortRef.current) return;
-
-    // ── Step 2: Python Ingest ────────────────────────────────────────────────
-    updateItem(index, { status: "ingesting", routeUrl, confidence, matchReasons });
-    try {
-      const res = await fetch(`${PYTHON_URL}/ingest/url`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: ingestUrl, store: true }),
-      });
-
-      const raw = await res.text();
-      let parsed;
-      try { parsed = JSON.parse(raw); } catch { parsed = raw; }
-
-      if (!res.ok) {
-        updateItem(index, {
-          status: "error",
-          error: `Ingest failed (${res.status}): ${typeof parsed === "string" ? parsed : JSON.stringify(parsed)}`,
-          ingestResponse: parsed,
-          routeUrl, confidence, matchReasons,
-        });
-        return;
-      }
-
-      // Try to extract a record count from the response
-      let recordsCount;
-      if (typeof parsed === "object" && parsed !== null) {
-        recordsCount = parsed.count ?? parsed.records_count ?? parsed.stored ?? parsed.total ?? undefined;
-      }
-
-      updateItem(index, {
-        status: "done",
-        ingestResponse: parsed,
-        routeUrl, confidence, matchReasons,
-        recordsCount,
-      });
-    } catch (e) {
-      updateItem(index, {
-        status: "error",
-        error: `Ingest request failed: ${e.message}`,
-        routeUrl, confidence, matchReasons,
-      });
+    updateItem(index, {
+      status: "done",
+      ingestResponse: parsed,
+      routeUrl, confidence, matchReasons,
+      recordsCount,
+    });
+  } catch (e) {
+    if (e.name === "AbortError") {
+      updateItem(index, { status: "skipped", error: "Stopped by user.", routeUrl, confidence, matchReasons });
+      return;
     }
-  }, [updateItem]);
+    updateItem(index, {
+      status: "error",
+      error: `Ingest request failed: ${e.message}`,
+      routeUrl, confidence, matchReasons,
+    });
+  }
+}, [updateItem]);
 
-  // ── Run queue sequentially ─────────────────────────────────────────────────
-  const runQueue = useCallback(async (urls) => {
-    abortRef.current = false;
-    setRunning(true);
-    setDoneCount(0);
+// ── Run queue sequentially ─────────────────────────────────────────────────
+const runQueue = useCallback(async (urls) => {
+  // Reset abort state before every new run
+  abortRef.current = { stopped: false, controller: null };
+  setRunning(true);
+  setDoneCount(0);
 
-    const initialItems = urls.map(url => ({ url, status: "pending", needsRouteFinder: null }));
-    setItems(initialItems);
+  const initialItems = urls.map(url => ({ url, status: "pending", needsRouteFinder: null }));
+  setItems(initialItems);
 
-    for (let i = 0; i < urls.length; i++) {
-      if (abortRef.current) break;
-      await processUrl(urls[i], i);
-      setDoneCount(i + 1);
-    }
+  for (let i = 0; i < urls.length; i++) {
+    if (abortRef.current.stopped) break;
+    await processUrl(urls[i], i);
+    setDoneCount(i + 1);
+  }
 
-    setRunning(false);
-  }, [processUrl]);
+  setRunning(false);
+}, [processUrl]);
 
+// ── Stop ───────────────────────────────────────────────────────────────────
+const handleStop = () => {
+  abortRef.current.stopped = true;        // stops the for loop picking up next URLs
+  abortRef.current.controller?.abort();   // cancels the active in-flight fetch immediately
+};
   // ── Submit single URL ──────────────────────────────────────────────────────
   const handleSingleSubmit = async (e) => {
     e.preventDefault();
@@ -695,7 +717,7 @@ export default function URLPage() {
     if (f) handleFile(f);
   };
 
-  const handleStop = () => { abortRef.current = true; };
+
   const handleClear = () => { setItems([]); setDoneCount(0); setSingleUrl(""); setFileName(null); };
 
   const doneFinal  = items.filter(i => i.status === "done").length;
