@@ -1,6 +1,5 @@
-# Gov Route Finder
-A full-stack government route and directory finder platform built with a **Next.js frontend** and a **Node.js backend**.  
-The project helps users discover, scrape, and manage government department routes, directories, and related information efficiently.
+# Gov Route Finder Frontend & Node Backend
+
 ---
 # 📁 Project Structure
 ```bash
@@ -11,24 +10,6 @@ project-root/
 ├── gov-route-finder/      # Node.js backend API & scraping services
 │
 └── .gitignore
-
-⸻
-
-🚀 Tech Stack
-
-Frontend
-
-* Next.js
-* React.js
-* JavaScript
-* Tailwind CSS
-* Framer motion
-
-Backend
-
-* Node.js
-* Express.js
-* Axios
 
 ⸻
 
@@ -99,59 +80,6 @@ http://localhost:5000
 
 ⸻
 
-📂 Recommended Folder Structure
-
-Frontend
-
-frontend/
-│
-├── app/                            # Next.js App Router
-│   │
-│   ├── chat/                       # Chat module/pages
-│   │
-│   ├── dashboard/                  # Dashboard pages
-│   │
-│   ├── urls/                       # URL management/routes
-│   │
-│   ├── favicon.ico                 # Website favicon
-│   │
-│   ├── globals.css                 # Global styles
-│   │
-│   ├── layout.js                   # Root layout
-│   │
-│   └── page.js                     # Landing/Home page
-│
-├── public/                         # Static assets
-│   ├── images/
-│   ├── icons/
-│   └── assets/
-│
-├── .gitignore
-├── AGENTS.md                       # AI agent/project notes
-├── CLAUDE.md                       # Claude-specific instructions
-├── README.md
-├── eslint.config.mjs
-├── jsconfig.json
-├── next.config.mjs
-├── package-lock.json
-├── package.json
-└── postcss.config.mjs
-
-⸻
-
-Backend
-
-gov-route-finder/
-│
-├── routes/
-├── controllers/
-├── services/
-├── utils/
-├── package.json
-└── server.js
-
-⸻
-
 🛠️ Development Commands
 
 Frontend
@@ -162,4 +90,4 @@ Backend
 
 npm start
 
-
+⸻
