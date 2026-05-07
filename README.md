@@ -50,7 +50,7 @@ Install dependencies:
 
 npm install
 
-Create a .env.local file inside the frontend folder:
+Create a .env file inside the frontend folder:
 
 NEXT_PUBLIC_NODE_BACKEND_URL=http://localhost:5000
 NEXT_PUBLIC_PYTHON_BACKEND_URL=http://localhost:8000
@@ -160,7 +160,5 @@ npm run dev
 Backend
 
 npm start
-
-⸻
 
 
