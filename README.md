@@ -34,18 +34,6 @@ Backend
 
 ⸻
 
-✨ Features
-
-* Government route discovery
-* API-based backend architecture
-* Government website scraping support
-* Frontend dashboard interface
-* Retry and timeout handling
-* Modular backend services
-* Environment-based configuration
-
-⸻
-
 ⚙️ Installation
 
 1️⃣ Clone the Repository
@@ -113,30 +101,45 @@ http://localhost:5000
 
 ⸻
 
-📡 Backend Responsibilities
-
-The backend handles:
-
-* Government route scraping
-* API response handling
-* Retry mechanisms
-* Timeout management
-* Error classification
-* Route aggregation services
-
-⸻
-
 📂 Recommended Folder Structure
 
 Frontend
 
 frontend/
 │
-├── components/
-├── pages/
-├── public/
-├── styles/
-└── package.json
+├── app/                            # Next.js App Router
+│   │
+│   ├── chat/                       # Chat module/pages
+│   │
+│   ├── dashboard/                  # Dashboard pages
+│   │
+│   ├── urls/                       # URL management/routes
+│   │
+│   ├── favicon.ico                 # Website favicon
+│   │
+│   ├── globals.css                 # Global styles
+│   │
+│   ├── layout.js                   # Root layout
+│   │
+│   └── page.js                     # Landing/Home page
+│
+├── public/                         # Static assets
+│   ├── images/
+│   ├── icons/
+│   └── assets/
+│
+├── .gitignore
+├── AGENTS.md                       # AI agent/project notes
+├── CLAUDE.md                       # Claude-specific instructions
+├── README.md
+├── eslint.config.mjs
+├── jsconfig.json
+├── next.config.mjs
+├── package-lock.json
+├── package.json
+└── postcss.config.mjs
+
+
 
 Backend
 
@@ -156,12 +159,9 @@ gov-route-finder/
 Frontend
 
 npm run dev
-npm run build
-npm run start
 
 Backend
 
-npm run dev
 npm start
 
 ⸻
