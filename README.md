@@ -21,7 +21,8 @@ Frontend
 * Next.js
 * React.js
 * JavaScript
-* CSS
+* Tailwind CSS
+* Framer motion
 
 Backend
 
